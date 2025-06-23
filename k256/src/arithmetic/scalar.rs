@@ -269,7 +269,7 @@ impl Scalar {
     }
 
     /// Raises the scalar to the power `2^k`.
-    fn pow2k(&self, k: usize) -> Self {
+    fn _pow2k(&self, k: usize) -> Self {
         let mut x = *self;
         for _j in 0..k {
             x = x.square();
@@ -771,7 +771,7 @@ impl ReduceNonZero<U512> for Scalar {
 
 impl Sum for Scalar {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(core::ops::Add::add).unwrap_or(Self::ZERO)
+        iter.reduce(Add::add).unwrap_or(Self::ZERO)
     }
 }
 
@@ -783,7 +783,7 @@ impl<'a> Sum<&'a Scalar> for Scalar {
 
 impl Product for Scalar {
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(core::ops::Mul::mul).unwrap_or(Self::ONE)
+        iter.reduce(Mul::mul).unwrap_or(Self::ONE)
     }
 }
 
