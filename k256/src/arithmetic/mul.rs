@@ -56,6 +56,13 @@ use elliptic_curve::{
 #[cfg(feature = "precomputed-tables")]
 use once_cell::sync::Lazy;
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use ziskos::{point256::SyscallPoint256, zisklib::{from_be_bytes_to_u64_array, from_u64_array_to_be_bytes, secp256k1_double_scalar_mul_with_g}};
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use elliptic_curve::Group;
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use super::{FieldElement, AffinePoint};
+
 /// Lookup table containing precomputed values `[p, 2p, 3p, ..., 8p]`
 #[derive(Copy, Clone, Default)]
 struct LookupTable([ProjectivePoint; 8]);
@@ -314,6 +321,53 @@ fn lincomb(
     tables: &mut [(LookupTable, LookupTable)],
     digits: &mut [(Radix16Decomposition<33>, Radix16Decomposition<33>)],
 ) -> ProjectivePoint {
+    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    {
+        if xks.len() == 2 {
+            let (p1, s1) = xks[0];
+            let (p2, s2) = xks[1];
+
+            if p1 == ProjectivePoint::GENERATOR || p2 == ProjectivePoint::GENERATOR {
+                // If one of the points is the generator, and the other is not
+                // the identity, we can use the zisklib syscall
+                let p = if p1 == ProjectivePoint::GENERATOR {
+                    p2
+                } else {
+                    p1
+                };
+
+                if (!p.is_identity()).into() {
+                    // Convert to appropriate format
+                    let s1 = s1.0.to_words();
+                    let s2 = s2.0.to_words();
+                    let p_affine = p.to_affine();
+                    let p_x = from_be_bytes_to_u64_array(p_affine.x.to_bytes().as_slice().try_into().unwrap()); // TODO: Check if this is correct
+                    let p_y = from_be_bytes_to_u64_array(p_affine.y.to_bytes().as_slice().try_into().unwrap()); // to_bytes is using SEC1 encoding
+                    let p = SyscallPoint256 {
+                        x: p_x,
+                        y: p_y,
+                    };
+
+                    // Use the zisklib for the computation
+                    let (is_identity, res) = secp256k1_double_scalar_mul_with_g(&s1, &s2, &p);
+
+                    // Convert back to the original format
+                    if is_identity {
+                        return ProjectivePoint::IDENTITY;
+                    }
+
+                    let res = AffinePoint {
+                        x: FieldElement::from_bytes_unchecked(&from_u64_array_to_be_bytes(&res.x)),
+                        y: FieldElement::from_bytes_unchecked(&from_u64_array_to_be_bytes(&res.y)),
+                        infinity: 0,
+                    };
+
+                    return ProjectivePoint::from(&res);
+                }
+            }
+        }
+    }
+
     xks.iter().enumerate().for_each(|(i, (x, k))| {
         let (r1, r2) = decompose_scalar(k);
         let x_beta = x.endomorphism();

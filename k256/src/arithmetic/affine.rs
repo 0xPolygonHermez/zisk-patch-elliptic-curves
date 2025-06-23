@@ -17,6 +17,9 @@ use elliptic_curve::{
 #[cfg(feature = "serde")]
 use serdect::serde::{de, ser, Deserialize, Serialize};
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use ziskos::zisklib::secp256k1_decompress;
+
 /// secp256k1 curve point expressed in affine coordinates.
 ///
 /// # `serde` support
@@ -183,21 +186,38 @@ impl Neg for AffinePoint {
 
 impl DecompressPoint<Secp256k1> for AffinePoint {
     fn decompress(x_bytes: &FieldBytes, y_is_odd: Choice) -> CtOption<Self> {
-        FieldElement::from_bytes(x_bytes).and_then(|x| {
-            let alpha = (x * &x * &x) + &CURVE_EQUATION_B;
-            let beta = alpha.sqrt();
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            // Use the zisklib for the computation
+            let (res, exists) = secp256k1_decompress(x_bytes.as_slice().try_into().unwrap(), y_is_odd.into());
 
-            beta.map(|beta| {
-                let beta = beta.normalize(); // Need to normalize for is_odd() to be consistent
-                let y = FieldElement::conditional_select(
-                    &beta.negate(1),
-                    &beta,
-                    beta.is_odd().ct_eq(&y_is_odd),
-                );
+            // Convert back to the original format
+            let res = AffinePoint {
+                x: FieldElement::from_bytes_unchecked(&res.0),
+                y: FieldElement::from_bytes_unchecked(&res.1),
+                infinity: 0,
+            };
+            CtOption::new(res, Choice::from(exists as u8))
+        }
 
-                Self::new(x, y.normalize())
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            FieldElement::from_bytes(x_bytes).and_then(|x| {
+                let alpha = (x * &x * &x) + &CURVE_EQUATION_B;
+                let beta = alpha.sqrt();
+
+                beta.map(|beta| {
+                    let beta = beta.normalize(); // Need to normalize for is_odd() to be consistent
+                    let y = FieldElement::conditional_select(
+                        &beta.negate(1),
+                        &beta,
+                        beta.is_odd().ct_eq(&y_is_odd),
+                    );
+
+                    Self::new(x, y.normalize())
+                })
             })
-        })
+        }
     }
 }
 

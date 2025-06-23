@@ -34,6 +34,9 @@ use serdect::serde::{de, ser, Deserialize, Serialize};
 #[cfg(test)]
 use num_bigint::{BigUint, ToBigUint};
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use ziskos::zisklib::{secp256k1_fn_inv, secp256k1_fn_mul, secp256k1_fn_add};
+
 /// Constant representing the modulus
 /// n = FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
 const MODULUS: [Word; U256::LIMBS] = ORDER.to_words();
@@ -98,8 +101,24 @@ impl Scalar {
     }
 
     /// Returns self + rhs mod n.
-    pub const fn add(&self, rhs: &Self) -> Self {
-        Self(self.0.add_mod(&rhs.0, &ORDER))
+    pub fn add(&self, rhs: &Self) -> Self {
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            // Convert to appropriate format
+            let x = self.0.to_words();
+            let y = rhs.0.to_words();
+
+            // Use the zisklib for the computation
+            let res = secp256k1_fn_add(&x, &y);
+
+            // Convert back to the original format
+            Scalar(U256::from_words(res))
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            Self(self.0.add_mod(&rhs.0, &ORDER))
+        }
     }
 
     /// Returns self - rhs mod n.
@@ -109,7 +128,23 @@ impl Scalar {
 
     /// Modulo multiplies two scalars.
     pub fn mul(&self, rhs: &Scalar) -> Scalar {
-        WideScalar::mul_wide(self, rhs).reduce()
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            // Convert to appropriate format
+            let x = self.0.to_words();
+            let y = rhs.0.to_words();
+
+            // Use the zisklib for the computation
+            let res = secp256k1_fn_mul(&x, &y);
+
+            // Convert back to the original format
+            Scalar(U256::from_words(res))
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            WideScalar::mul_wide(self, rhs).reduce()
+        }
     }
 
     /// Modulo squares the scalar.
@@ -126,53 +161,76 @@ impl Scalar {
 
     /// Inverts the scalar.
     pub fn invert(&self) -> CtOption<Self> {
-        // Using an addition chain from
-        // https://briansmith.org/ecc-inversion-addition-chains-01#secp256k1_scalar_inversion
-        let x_1 = *self;
-        let x_10 = self.pow2k(1);
-        let x_11 = x_10.mul(&x_1);
-        let x_101 = x_10.mul(&x_11);
-        let x_111 = x_10.mul(&x_101);
-        let x_1001 = x_10.mul(&x_111);
-        let x_1011 = x_10.mul(&x_1001);
-        let x_1101 = x_10.mul(&x_1011);
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let is_zero = self.is_zero();
+            // If the scalar is zero, return 0
+            if is_zero.into() {
+                return CtOption::new(Self::ZERO, is_zero);
+            }
 
-        let x6 = x_1101.pow2k(2).mul(&x_1011);
-        let x8 = x6.pow2k(2).mul(&x_11);
-        let x14 = x8.pow2k(6).mul(&x6);
-        let x28 = x14.pow2k(14).mul(&x14);
-        let x56 = x28.pow2k(28).mul(&x28);
+            // Convert to appropriate format
+            let x = self.0.to_words();
 
-        #[rustfmt::skip]
-            let res = x56
-            .pow2k(56).mul(&x56)
-            .pow2k(14).mul(&x14)
-            .pow2k(3).mul(&x_101)
-            .pow2k(4).mul(&x_111)
-            .pow2k(4).mul(&x_101)
-            .pow2k(5).mul(&x_1011)
-            .pow2k(4).mul(&x_1011)
-            .pow2k(4).mul(&x_111)
-            .pow2k(5).mul(&x_111)
-            .pow2k(6).mul(&x_1101)
-            .pow2k(4).mul(&x_101)
-            .pow2k(3).mul(&x_111)
-            .pow2k(5).mul(&x_1001)
-            .pow2k(6).mul(&x_101)
-            .pow2k(10).mul(&x_111)
-            .pow2k(4).mul(&x_111)
-            .pow2k(9).mul(&x8)
-            .pow2k(5).mul(&x_1001)
-            .pow2k(6).mul(&x_1011)
-            .pow2k(4).mul(&x_1101)
-            .pow2k(5).mul(&x_11)
-            .pow2k(6).mul(&x_1101)
-            .pow2k(10).mul(&x_1101)
-            .pow2k(4).mul(&x_1001)
-            .pow2k(6).mul(&x_1)
-            .pow2k(8).mul(&x6);
+            // Use the zisklib to compute the inverse
+            let res = secp256k1_fn_inv(&x);
 
-        CtOption::new(res, !self.is_zero())
+            // Convert back to the original format
+            let res = Self(U256::from_words(res));
+
+            CtOption::new(res, !is_zero)
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            // Using an addition chain from
+            // https://briansmith.org/ecc-inversion-addition-chains-01#secp256k1_scalar_inversion
+            let x_1 = *self;
+            let x_10 = self.pow2k(1);
+            let x_11 = x_10.mul(&x_1);
+            let x_101 = x_10.mul(&x_11);
+            let x_111 = x_10.mul(&x_101);
+            let x_1001 = x_10.mul(&x_111);
+            let x_1011 = x_10.mul(&x_1001);
+            let x_1101 = x_10.mul(&x_1011);
+
+            let x6 = x_1101.pow2k(2).mul(&x_1011);
+            let x8 = x6.pow2k(2).mul(&x_11);
+            let x14 = x8.pow2k(6).mul(&x6);
+            let x28 = x14.pow2k(14).mul(&x14);
+            let x56 = x28.pow2k(28).mul(&x28);
+
+            #[rustfmt::skip]
+                let res = x56
+                .pow2k(56).mul(&x56)
+                .pow2k(14).mul(&x14)
+                .pow2k(3).mul(&x_101)
+                .pow2k(4).mul(&x_111)
+                .pow2k(4).mul(&x_101)
+                .pow2k(5).mul(&x_1011)
+                .pow2k(4).mul(&x_1011)
+                .pow2k(4).mul(&x_111)
+                .pow2k(5).mul(&x_111)
+                .pow2k(6).mul(&x_1101)
+                .pow2k(4).mul(&x_101)
+                .pow2k(3).mul(&x_111)
+                .pow2k(5).mul(&x_1001)
+                .pow2k(6).mul(&x_101)
+                .pow2k(10).mul(&x_111)
+                .pow2k(4).mul(&x_111)
+                .pow2k(9).mul(&x8)
+                .pow2k(5).mul(&x_1001)
+                .pow2k(6).mul(&x_1011)
+                .pow2k(4).mul(&x_1101)
+                .pow2k(5).mul(&x_11)
+                .pow2k(6).mul(&x_1101)
+                .pow2k(10).mul(&x_1101)
+                .pow2k(4).mul(&x_1001)
+                .pow2k(6).mul(&x_1)
+                .pow2k(8).mul(&x6);
+
+            CtOption::new(res, !self.is_zero())
+        }
     }
 
     /// Returns the scalar modulus as a `BigUint` object.
