@@ -57,7 +57,7 @@ use elliptic_curve::{
 use once_cell::sync::Lazy;
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::{point256::SyscallPoint256, zisklib::{from_be_bytes_to_u64_array, from_u64_array_to_be_bytes, secp256k1_double_scalar_mul_with_g}};
+use ziskos::{point::SyscallPoint256, zisklib::{from_be_bytes_to_u64_array, from_u64_array_to_be_bytes, secp256k1_double_scalar_mul_with_g}};
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use elliptic_curve::Group;
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
