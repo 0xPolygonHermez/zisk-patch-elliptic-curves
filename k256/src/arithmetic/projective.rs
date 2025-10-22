@@ -25,6 +25,9 @@ use elliptic_curve::{
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use ziskos::zisklib::secp256k1_to_affine;
+
 #[rustfmt::skip]
 const ENDOMORPHISM_BETA: FieldElement = FieldElement::from_bytes_unchecked(&[
     0x7a, 0xe9, 0x6a, 0x2b, 0x65, 0x7c, 0x07, 0x10,
@@ -71,10 +74,43 @@ impl ProjectivePoint {
 
     /// Returns the affine representation of this point.
     pub fn to_affine(&self) -> AffinePoint {
-        self.z
-            .invert()
-            .map(|zinv| self.to_affine_internal(zinv))
-            .unwrap_or_else(|| AffinePoint::IDENTITY)
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            // Convert to appropriate format
+            let x = self.x.to_4x64();
+            let y = self.y.to_4x64();
+            let z = self.z.to_4x64();
+            let p = [
+                    x[0], x[1], x[2], x[3],
+                    y[0], y[1], y[2], y[3],
+                    z[0], z[1], z[2], z[3],
+            ];
+
+            // Use the zisklib for the computation
+            let p_aff = secp256k1_to_affine(&p);
+
+            // Convert back to the original format
+            match p_aff {
+                Some(res) => {
+                    let res_x = FieldElement::from_4x64(&[
+                        res[0], res[1], res[2], res[3],
+                    ]);
+                    let res_y = FieldElement::from_4x64(&[
+                        res[4], res[5], res[6], res[7],
+                    ]);
+                    AffinePoint::new(res_x,  res_y)
+                },
+                None => AffinePoint::IDENTITY,
+            }
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            self.z
+                .invert()
+                .map(|zinv| self.to_affine_internal(zinv))
+                .unwrap_or_else(|| AffinePoint::IDENTITY)
+        }
     }
 
     pub(super) fn to_affine_internal(self, zinv: FieldElement) -> AffinePoint {

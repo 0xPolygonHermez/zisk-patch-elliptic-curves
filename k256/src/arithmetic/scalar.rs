@@ -35,7 +35,7 @@ use serdect::serde::{de, ser, Deserialize, Serialize};
 use num_bigint::{BigUint, ToBigUint};
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::zisklib::{secp256k1_fn_inv, secp256k1_fn_mul, secp256k1_fn_add};
+use ziskos::zisklib::{secp256k1_fn_inv, secp256k1_fn_mul, secp256k1_fn_add, secp256k1_fn_neg, secp256k1_fn_sub, secp256k1_fn_reduce};
 
 /// Constant representing the modulus
 /// n = FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
@@ -96,34 +96,62 @@ impl Scalar {
     }
 
     /// Negates the scalar.
+    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
     pub const fn negate(&self) -> Self {
         Self(self.0.neg_mod(&ORDER))
     }
 
+    /// Negates the scalar.
+    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    pub fn negate(&self) -> Self {
+        // Convert to appropriate format
+        let x = self.0.to_words();
+
+        // Use the zisklib for the computation
+        let res = secp256k1_fn_neg(&x);
+
+        // Convert back to the original format
+        Scalar(U256::from_words(res))
+    }
+
     /// Returns self + rhs mod n.
+    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+    pub const fn add(&self, rhs: &Self) -> Self {
+        Self(self.0.add_mod(&rhs.0, &ORDER))
+    }
+
+    /// Returns self + rhs mod n.
+    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
     pub fn add(&self, rhs: &Self) -> Self {
-        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-        {
-            // Convert to appropriate format
-            let x = self.0.to_words();
-            let y = rhs.0.to_words();
+        // Convert to appropriate format
+        let x = self.0.to_words();
+        let y = rhs.0.to_words();
 
-            // Use the zisklib for the computation
-            let res = secp256k1_fn_add(&x, &y);
+        // Use the zisklib for the computation
+        let res = secp256k1_fn_add(&x, &y);
 
-            // Convert back to the original format
-            Scalar(U256::from_words(res))
-        }
-
-        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
-        {
-            Self(self.0.add_mod(&rhs.0, &ORDER))
-        }
+        // Convert back to the original format
+        Scalar(U256::from_words(res))
     }
 
     /// Returns self - rhs mod n.
+    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
     pub const fn sub(&self, rhs: &Self) -> Self {
         Self(self.0.sub_mod(&rhs.0, &ORDER))
+    }
+
+    /// Returns self - rhs mod n.
+    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    pub fn sub(&self, rhs: &Self) -> Self {
+        // Convert to appropriate format
+        let x = self.0.to_words();
+        let y = rhs.0.to_words();
+
+        // Use the zisklib for the computation
+        let res = secp256k1_fn_sub(&x, &y);
+
+        // Convert back to the original format
+        Scalar(U256::from_words(res))
     }
 
     /// Modulo multiplies two scalars.
@@ -269,7 +297,8 @@ impl Scalar {
     }
 
     /// Raises the scalar to the power `2^k`.
-    fn _pow2k(&self, k: usize) -> Self {
+    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+    fn pow2k(&self, k: usize) -> Self {
         let mut x = *self;
         for _j in 0..k {
             x = x.square();
@@ -490,49 +519,57 @@ impl Invert for Scalar {
     /// sidechannels.
     #[allow(non_snake_case)]
     fn invert_vartime(&self) -> CtOption<Self> {
-        let mut u = *self;
-        let mut v = Self::from_uint_unchecked(Secp256k1::ORDER);
-        let mut A = Self::ONE;
-        let mut C = Self::ZERO;
-
-        while !bool::from(u.is_zero()) {
-            // u-loop
-            while bool::from(u.is_even()) {
-                u >>= 1;
-
-                let was_odd: bool = A.is_odd().into();
-                A >>= 1;
-
-                if was_odd {
-                    A += Self::from_uint_unchecked(FRAC_MODULUS_2);
-                    A += Self::ONE;
-                }
-            }
-
-            // v-loop
-            while bool::from(v.is_even()) {
-                v >>= 1;
-
-                let was_odd: bool = C.is_odd().into();
-                C >>= 1;
-
-                if was_odd {
-                    C += Self::from_uint_unchecked(FRAC_MODULUS_2);
-                    C += Self::ONE;
-                }
-            }
-
-            // sub-step
-            if u >= v {
-                u -= &v;
-                A -= &C;
-            } else {
-                v -= &u;
-                C -= &A;
-            }
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            self.invert()
         }
 
-        CtOption::new(C, !self.is_zero())
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            let mut u = *self;
+            let mut v = Self::from_uint_unchecked(Secp256k1::ORDER);
+            let mut A = Self::ONE;
+            let mut C = Self::ZERO;
+
+            while !bool::from(u.is_zero()) {
+                // u-loop
+                while bool::from(u.is_even()) {
+                    u >>= 1;
+
+                    let was_odd: bool = A.is_odd().into();
+                    A >>= 1;
+
+                    if was_odd {
+                        A += Self::from_uint_unchecked(FRAC_MODULUS_2);
+                        A += Self::ONE;
+                    }
+                }
+
+                // v-loop
+                while bool::from(v.is_even()) {
+                    v >>= 1;
+
+                    let was_odd: bool = C.is_odd().into();
+                    C >>= 1;
+
+                    if was_odd {
+                        C += Self::from_uint_unchecked(FRAC_MODULUS_2);
+                        C += Self::ONE;
+                    }
+                }
+
+                // sub-step
+                if u >= v {
+                    u -= &v;
+                    A -= &C;
+                } else {
+                    v -= &u;
+                    C -= &A;
+                }
+            }
+
+            CtOption::new(C, !self.is_zero())
+        }
     }
 }
 
@@ -721,9 +758,25 @@ impl Reduce<U256> for Scalar {
     type Bytes = FieldBytes;
 
     fn reduce(w: U256) -> Self {
-        let (r, underflow) = w.sbb(&ORDER, Limb::ZERO);
-        let underflow = Choice::from((underflow.0 >> (Limb::BITS - 1)) as u8);
-        Self(U256::conditional_select(&w, &r, !underflow))
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            // Convert to appropriate format
+            let x = w.to_words();
+
+            // Use the zisklib for the computation
+            let res = secp256k1_fn_reduce(&x);
+
+            // Convert back to the original format
+            Scalar(U256::from_words(res))
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            let (r, underflow) = w.sbb(&ORDER, Limb::ZERO);
+            let underflow = Choice::from((underflow.0 >> (Limb::BITS - 1)) as u8);
+            Self(U256::conditional_select(&w, &r, !underflow))
+        }
+
     }
 
     #[inline]

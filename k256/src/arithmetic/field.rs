@@ -4,6 +4,10 @@
 
 use cfg_if::cfg_if;
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+mod field_4x64;
+
+#[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
 cfg_if! {
     if #[cfg(target_pointer_width = "32")] {
         mod field_10x26;
@@ -19,6 +23,10 @@ cfg_if! {
         mod field_impl;
         use field_impl::FieldElementImpl;
     } else {
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        use field_4x64::FieldElement4x64 as FieldElementImpl;
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         cfg_if! {
             if #[cfg(target_pointer_width = "32")] {
                 use field_10x26::FieldElement10x26 as FieldElementImpl;
@@ -104,9 +112,19 @@ impl FieldElement {
         Self(FieldElementImpl::from_u64(w))
     }
 
+    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    pub(crate) fn from_4x64(words: &[u64; 4]) -> Self {
+        Self(FieldElementImpl::from_4x64(words))
+    }
+
     /// Returns the SEC1 encoding of this field element.
     pub fn to_bytes(self) -> FieldBytes {
         self.0.normalize().to_bytes()
+    }
+
+    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    pub(crate) fn to_4x64(self) -> [u64; 4] {
+        self.0.0
     }
 
     /// Returns -self, treating it as a value of given magnitude.

@@ -57,7 +57,7 @@ use elliptic_curve::{
 use once_cell::sync::Lazy;
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::{point::SyscallPoint256, zisklib::{from_be_bytes_to_u64_array, from_u64_array_to_be_bytes, secp256k1_double_scalar_mul_with_g}};
+use ziskos::{point::SyscallPoint256, zisklib::secp256k1_double_scalar_mul_with_g};
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use elliptic_curve::Group;
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
@@ -340,12 +340,11 @@ fn lincomb(
                     // Convert to appropriate format
                     let s1 = s1.0.to_words();
                     let s2 = s2.0.to_words();
+
                     let p_affine = p.to_affine();
-                    let p_x = from_be_bytes_to_u64_array(p_affine.x.to_bytes().as_slice().try_into().unwrap()); // TODO: Check if this is correct
-                    let p_y = from_be_bytes_to_u64_array(p_affine.y.to_bytes().as_slice().try_into().unwrap()); // to_bytes is using SEC1 encoding
                     let p = SyscallPoint256 {
-                        x: p_x,
-                        y: p_y,
+                        x: p_affine.x.to_4x64(),
+                        y: p_affine.y.to_4x64(),
                     };
 
                     // Use the zisklib for the computation
@@ -357,8 +356,8 @@ fn lincomb(
                     }
 
                     let res = AffinePoint {
-                        x: FieldElement::from_bytes_unchecked(&from_u64_array_to_be_bytes(&res.x)),
-                        y: FieldElement::from_bytes_unchecked(&from_u64_array_to_be_bytes(&res.y)),
+                        x: FieldElement::from_4x64(&res.x),
+                        y: FieldElement::from_4x64(&res.y),
                         infinity: 0,
                     };
 

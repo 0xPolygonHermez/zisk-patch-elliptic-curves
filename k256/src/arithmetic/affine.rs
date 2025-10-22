@@ -193,8 +193,8 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
 
             // Convert back to the original format
             let res = AffinePoint {
-                x: FieldElement::from_bytes_unchecked(&res.0),
-                y: FieldElement::from_bytes_unchecked(&res.1),
+                x: FieldElement::from_4x64(&res.0),
+                y: FieldElement::from_4x64(&res.1),
                 infinity: 0,
             };
             CtOption::new(res, Choice::from(exists as u8))

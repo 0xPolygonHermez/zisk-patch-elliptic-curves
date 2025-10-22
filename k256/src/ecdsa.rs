@@ -159,6 +159,13 @@ use {
     elliptic_curve::{ops::Invert, scalar::IsHigh, subtle::CtOption},
 };
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use ziskos::{point::SyscallPoint256, zisklib::secp256k1_ecdsa_verify};
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use crate::{U256, FieldBytesEncoding};
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use elliptic_curve::PrimeField;
+
 /// ECDSA/secp256k1 signature (fixed-size)
 pub type Signature = ecdsa_core::Signature<Secp256k1>;
 
@@ -204,7 +211,36 @@ impl VerifyPrimitive<Secp256k1> for AffinePoint {
             return Err(Error::new());
         }
 
-        hazmat::verify_prehashed(&self.into(), z, sig)
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            // Convert to appropriate format
+            let pk = SyscallPoint256 {
+                x: self.x.to_4x64(),
+                y: self.y.to_4x64(),
+            };
+
+            let z_dec: U256 = FieldBytesEncoding::decode_field_bytes(z);
+            let z_words = z_dec.to_words();
+
+            let r: U256 = FieldBytesEncoding::decode_field_bytes(&sig.r().to_repr());
+            let s: U256 = FieldBytesEncoding::decode_field_bytes(&sig.s().to_repr());
+            let r_words = r.to_words();
+            let s_words = s.to_words();
+
+            // Use the zisklib for the computation
+            let verifies = secp256k1_ecdsa_verify(&pk, &z_words, &r_words, &s_words);
+
+            if verifies {
+                Ok(())
+            } else {
+                Err(Error::new())
+            }
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            hazmat::verify_prehashed(&self.into(), z, sig)
+        }
     }
 }
 
