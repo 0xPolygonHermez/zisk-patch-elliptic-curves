@@ -2,6 +2,9 @@
 //! they are not misused. Ensures the correct normalization and checks magnitudes in operations.
 //! Only enabled when `debug_assertions` feature is on.
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+compile_error!("This module (enabled when `debug_assertions` feature is on) must not be compiled for ZisK target. Compile in release mode.");
+
 use crate::FieldBytes;
 use elliptic_curve::{
     subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption},
