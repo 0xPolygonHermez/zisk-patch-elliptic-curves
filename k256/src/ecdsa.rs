@@ -160,7 +160,7 @@ use {
 };
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::{point::SyscallPoint256, zisklib::secp256k1_ecdsa_verify};
+use ziskos::{syscalls::SyscallPoint256, zisklib::secp256k1_ecdsa_verify};
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use crate::{U256, FieldBytesEncoding};
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
