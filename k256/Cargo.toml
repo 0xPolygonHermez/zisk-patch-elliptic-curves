@@ -30,7 +30,7 @@ sha2 = { version = "0.10", optional = true, default-features = false }
 signature = { version = "2", optional = true }
 
 [target.'cfg(all(target_os = "zkvm", target_vendor = "zisk"))'.dependencies]
-ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git", tag = "v0.13.0" }
+ziskos = { git = "https://github.com/0xPolygonHermez/zisk.git", tag = "v0.14.0" }
 # Local development
 # ziskos = { path = "../../../zisk/ziskos/entrypoint" }
 
