@@ -35,7 +35,7 @@ use serdect::serde::{de, ser, Deserialize, Serialize};
 use num_bigint::{BigUint, ToBigUint};
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::zisklib::{secp256k1_fn_inv, secp256k1_fn_mul, secp256k1_fn_add, secp256k1_fn_neg, secp256k1_fn_sub, secp256k1_fn_reduce};
+use crate::zisk;
 
 /// Constant representing the modulus
 /// n = FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFE BAAEDCE6 AF48A03B BFD25E8C D0364141
@@ -104,13 +104,9 @@ impl Scalar {
     /// Negates the scalar.
     #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
     pub fn negate(&self) -> Self {
-        // Convert to appropriate format
         let x = self.0.to_words();
-
-        // Use the zisklib for the computation
-        let res = secp256k1_fn_neg(&x);
-
-        // Convert back to the original format
+        let mut res = [0u64; 4];
+        unsafe { zisk::secp256k1_fn_neg_c(x.as_ptr(), res.as_mut_ptr()); }
         Scalar(U256::from_words(res))
     }
 
@@ -123,14 +119,10 @@ impl Scalar {
     /// Returns self + rhs mod n.
     #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
     pub fn add(&self, rhs: &Self) -> Self {
-        // Convert to appropriate format
         let x = self.0.to_words();
         let y = rhs.0.to_words();
-
-        // Use the zisklib for the computation
-        let res = secp256k1_fn_add(&x, &y);
-
-        // Convert back to the original format
+        let mut res = [0u64; 4];
+        unsafe { zisk::secp256k1_fn_add_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
         Scalar(U256::from_words(res))
     }
 
@@ -143,14 +135,10 @@ impl Scalar {
     /// Returns self - rhs mod n.
     #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
     pub fn sub(&self, rhs: &Self) -> Self {
-        // Convert to appropriate format
         let x = self.0.to_words();
         let y = rhs.0.to_words();
-
-        // Use the zisklib for the computation
-        let res = secp256k1_fn_sub(&x, &y);
-
-        // Convert back to the original format
+        let mut res = [0u64; 4];
+        unsafe { zisk::secp256k1_fn_sub_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
         Scalar(U256::from_words(res))
     }
 
@@ -158,14 +146,10 @@ impl Scalar {
     pub fn mul(&self, rhs: &Scalar) -> Scalar {
         #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
         {
-            // Convert to appropriate format
             let x = self.0.to_words();
             let y = rhs.0.to_words();
-
-            // Use the zisklib for the computation
-            let res = secp256k1_fn_mul(&x, &y);
-
-            // Convert back to the original format
+            let mut res = [0u64; 4];
+            unsafe { zisk::secp256k1_fn_mul_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
             Scalar(U256::from_words(res))
         }
 
@@ -192,27 +176,21 @@ impl Scalar {
         #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
         {
             let is_zero = self.is_zero();
-            // If the scalar is zero, return 0
             if is_zero.into() {
                 return CtOption::new(Self::ZERO, is_zero);
             }
 
-            // Convert to appropriate format
             let x = self.0.to_words();
-
-            // Use the zisklib to compute the inverse
-            let res = secp256k1_fn_inv(&x);
-
-            // Convert back to the original format
-            let res = Self(U256::from_words(res));
-
-            CtOption::new(res, !is_zero)
+            let mut res = [0u64; 4];
+            unsafe { zisk::secp256k1_fn_inv_c(x.as_ptr(), res.as_mut_ptr()); }
+            
+            CtOption::new(Self(U256::from_words(res)), !is_zero)
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             // Using an addition chain from
-            // https://briansmith.org/ecc-inversion-addition-chains-01#secp256k1_scalar_inversion
+            // https://briansmith.org/ecc-inversion-addition-chains-01#zisk::secp256k1_scalar_inversion
             let x_1 = *self;
             let x_10 = self.pow2k(1);
             let x_11 = x_10.mul(&x_1);
@@ -760,13 +738,9 @@ impl Reduce<U256> for Scalar {
     fn reduce(w: U256) -> Self {
         #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
         {
-            // Convert to appropriate format
             let x = w.to_words();
-
-            // Use the zisklib for the computation
-            let res = secp256k1_fn_reduce(&x);
-
-            // Convert back to the original format
+            let mut res = [0u64; 4];
+            unsafe { zisk::secp256k1_fn_reduce_c(x.as_ptr(), res.as_mut_ptr()); }
             Scalar(U256::from_words(res))
         }
 

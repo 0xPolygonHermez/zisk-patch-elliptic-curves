@@ -6,7 +6,10 @@
     html_favicon_url = "https://raw.githubusercontent.com/RustCrypto/meta/master/logo.svg"
 )]
 #![allow(clippy::needless_range_loop)]
-#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(all(target_os = "zkvm", target_vendor = "zisk")),
+    forbid(unsafe_code)
+)]
 #![warn(
     clippy::mod_module_files,
     clippy::unwrap_used,
@@ -46,6 +49,9 @@ pub mod schnorr;
 
 #[cfg(any(feature = "test-vectors", test))]
 pub mod test_vectors;
+
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+mod zisk;
 
 pub use elliptic_curve::{self, bigint::U256};
 

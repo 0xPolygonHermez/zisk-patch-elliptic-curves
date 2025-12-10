@@ -57,9 +57,9 @@ use elliptic_curve::{
 use once_cell::sync::Lazy;
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::{syscalls::SyscallPoint256, zisklib::secp256k1_double_scalar_mul_with_g};
-#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use elliptic_curve::Group;
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use crate::zisk;
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use super::{FieldElement, AffinePoint};
 
@@ -337,27 +337,36 @@ fn lincomb(
                 };
 
                 if (!p.is_identity()).into() {
-                    // Convert to appropriate format
+                    // Convert scalars to u64 arrays
                     let s1 = s1.0.to_words();
                     let s2 = s2.0.to_words();
 
+                    // Convert point to u64 arrays
                     let p_affine = p.to_affine();
-                    let p = SyscallPoint256 {
-                        x: p_affine.x.to_4x64(),
-                        y: p_affine.y.to_4x64(),
-                    };
+                    let p_x = p_affine.x.to_4x64();
+                    let p_y = p_affine.y.to_4x64();
+                    let mut p_coords = [0u64; 8];
+                    p_coords[0..4].copy_from_slice(&p_x);
+                    p_coords[4..8].copy_from_slice(&p_y);
 
                     // Use the zisklib for the computation
-                    let (is_identity, res) = secp256k1_double_scalar_mul_with_g(&s1, &s2, &p);
+                    let mut res = [0u64; 8];
+                    let is_identity = unsafe {
+                        zisk::secp256k1_double_scalar_mul_with_g_c(
+                            s1.as_ptr(),
+                            s2.as_ptr(),
+                            p_coords.as_ptr(),
+                            res.as_mut_ptr(),
+                        )
+                    };
 
-                    // Convert back to the original format
                     if is_identity {
                         return ProjectivePoint::IDENTITY;
                     }
 
                     let res = AffinePoint {
-                        x: FieldElement::from_4x64(&res.x),
-                        y: FieldElement::from_4x64(&res.y),
+                        x: FieldElement::from_4x64(&[res[0], res[1], res[2], res[3]]),
+                        y: FieldElement::from_4x64(&[res[4], res[5], res[6], res[7]]),
                         infinity: 0,
                     };
 

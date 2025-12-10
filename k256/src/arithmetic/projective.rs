@@ -26,7 +26,7 @@ use elliptic_curve::{
 use alloc::vec::Vec;
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::zisklib::secp256k1_to_affine;
+use crate::zisk;
 
 #[rustfmt::skip]
 const ENDOMORPHISM_BETA: FieldElement = FieldElement::from_bytes_unchecked(&[
@@ -76,32 +76,32 @@ impl ProjectivePoint {
     pub fn to_affine(&self) -> AffinePoint {
         #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
         {
-            // Convert to appropriate format
+            let z = self.z.to_4x64();
+            if z == [0, 0, 0, 0] {
+                return AffinePoint::IDENTITY;
+            } else if z == [1, 0, 0, 0] {
+                return AffinePoint::new(self.x.normalize(), self.y.normalize());
+            }
+
+            // Convert to appropriate format for zisklib
             let x = self.x.to_4x64();
             let y = self.y.to_4x64();
-            let z = self.z.to_4x64();
             let p = [
-                    x[0], x[1], x[2], x[3],
-                    y[0], y[1], y[2], y[3],
-                    z[0], z[1], z[2], z[3],
+                x[0], x[1], x[2], x[3],
+                y[0], y[1], y[2], y[3],
+                z[0], z[1], z[2], z[3],
             ];
 
             // Use the zisklib for the computation
-            let p_aff = secp256k1_to_affine(&p);
+            let mut res = [0u64; 8];
+            unsafe {
+                zisk::secp256k1_to_affine_c(p.as_ptr(), res.as_mut_ptr());
+            }
 
             // Convert back to the original format
-            match p_aff {
-                Some(res) => {
-                    let res_x = FieldElement::from_4x64(&[
-                        res[0], res[1], res[2], res[3],
-                    ]);
-                    let res_y = FieldElement::from_4x64(&[
-                        res[4], res[5], res[6], res[7],
-                    ]);
-                    AffinePoint::new(res_x,  res_y)
-                },
-                None => AffinePoint::IDENTITY,
-            }
+            let res_x = FieldElement::from_4x64(&[res[0], res[1], res[2], res[3]]);
+            let res_y = FieldElement::from_4x64(&[res[4], res[5], res[6], res[7]]);
+            AffinePoint::new(res_x, res_y)
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]

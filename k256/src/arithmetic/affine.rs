@@ -18,7 +18,7 @@ use elliptic_curve::{
 use serdect::serde::{de, ser, Deserialize, Serialize};
 
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use ziskos::zisklib::secp256k1_decompress;
+use crate::zisk;
 
 /// secp256k1 curve point expressed in affine coordinates.
 ///
@@ -188,16 +188,21 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
     fn decompress(x_bytes: &FieldBytes, y_is_odd: Choice) -> CtOption<Self> {
         #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
         {
-            // Use the zisklib for the computation
-            let (res, exists) = secp256k1_decompress(x_bytes.as_slice().try_into().unwrap(), y_is_odd.into());
+            let mut coords = [0u64; 8];
+            let success = unsafe {
+                zisk::secp256k1_decompress_c(
+                    x_bytes.as_ptr(),
+                    y_is_odd.unwrap_u8(),
+                    coords.as_mut_ptr(),
+                )
+            };
 
-            // Convert back to the original format
-            let res = AffinePoint {
-                x: FieldElement::from_4x64(&res.0),
-                y: FieldElement::from_4x64(&res.1),
+            let pt = AffinePoint {
+                x: FieldElement::from_4x64(&[coords[0], coords[1], coords[2], coords[3]]),
+                y: FieldElement::from_4x64(&[coords[4], coords[5], coords[6], coords[7]]),
                 infinity: 0,
             };
-            CtOption::new(res, Choice::from(exists as u8))
+            CtOption::new(pt, Choice::from(success))
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
