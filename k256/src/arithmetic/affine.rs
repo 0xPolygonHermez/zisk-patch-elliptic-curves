@@ -205,6 +205,11 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
             CtOption::new(pt, Choice::from(success))
         }
 
+        #[cfg(zisk_hints)]
+        {
+            // TODO: Implement the hints
+        }
+
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             FieldElement::from_bytes(x_bytes).and_then(|x| {

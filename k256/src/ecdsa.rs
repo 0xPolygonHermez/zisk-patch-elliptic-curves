@@ -159,10 +159,14 @@ use {
     elliptic_curve::{ops::Invert, scalar::IsHigh, subtle::CtOption},
 };
 
-#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+#[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
 use elliptic_curve::PrimeField;
+
+#[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
+use crate::{U256, FieldBytesEncoding};
+
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use crate::{zisk, U256, FieldBytesEncoding};
+use crate::zisk;
 
 /// ECDSA/secp256k1 signature (fixed-size)
 pub type Signature = ecdsa_core::Signature<Secp256k1>;
@@ -209,7 +213,7 @@ impl VerifyPrimitive<Secp256k1> for AffinePoint {
             return Err(Error::new());
         }
 
-        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
         {
             // Convert to appropriate format
             let pk_x = self.x.to_4x64();
@@ -227,20 +231,29 @@ impl VerifyPrimitive<Secp256k1> for AffinePoint {
             let r_words = r.to_words();
             let s_words = s.to_words();
 
-            // Use the zisklib for the computation
-            let verifies = unsafe {
-                zisk::secp256k1_ecdsa_verify_c(
-                    pk.as_ptr(),
-                    z_words.as_ptr(),
-                    r_words.as_ptr(),
-                    s_words.as_ptr(),
-                )
-            };
+            #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+            {
+                // Use the zisklib for the computation
+                let verifies = unsafe {
+                    zisk::secp256k1_ecdsa_verify_c(
+                        pk.as_ptr(),
+                        z_words.as_ptr(),
+                        r_words.as_ptr(),
+                        s_words.as_ptr(),
+                    )
+                };
 
-            if verifies {
-                Ok(())
-            } else {
-                Err(Error::new())
+                if verifies {
+                    return Ok(());
+                } else {
+                    return Err(Error::new());
+                }
+            }
+
+            #[cfg(zisk_hints)]
+            {
+                // TODO: Implement the hints
+                // ziskos::hints::hint_ecrecover(&pk, &z_words, &r_words, &s_words);
             }
         }
 

@@ -6,6 +6,7 @@ use elliptic_curve::{
     zeroize::Zeroize,
 };
 
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use crate::zisk;
 
 /// Scalars modulo SECP256k1 modulus (2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1).
@@ -114,16 +115,32 @@ impl FieldElement4x64 {
 
     /// Brings the field element's magnitude to 1, but does not necessarily normalize it.
     pub fn normalize_weak(&self) -> Self {
-        let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_reduce_c(self.0.as_ptr(), out.as_mut_ptr()) };
-        Self(out)
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut out = [0u64; 4];
+            unsafe { zisk::secp256k1_fp_reduce_c(self.0.as_ptr(), out.as_mut_ptr()) };
+            Self(out)
+        }
     }
 
     /// Fully normalizes the field element.
     pub fn normalize(&self) -> Self {
-        let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_reduce_c(self.0.as_ptr(), out.as_mut_ptr()) };
-        Self(out)
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut out = [0u64; 4];
+            unsafe { zisk::secp256k1_fp_reduce_c(self.0.as_ptr(), out.as_mut_ptr()) };
+            Self(out)
+        }
     }
 
     /// Checks if the field element becomes zero if normalized.
@@ -151,32 +168,64 @@ impl FieldElement4x64 {
 
     /// Returns -self
     pub fn negate(&self, _magnitude: u32) -> Self {
-        let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_negate_c(self.0.as_ptr(), out.as_mut_ptr()) };
-        Self(out)
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut out = [0u64; 4];
+            unsafe { zisk::secp256k1_fp_negate_c(self.0.as_ptr(), out.as_mut_ptr()) };
+            Self(out)
+        }
     }
 
     /// Returns self + rhs mod p.
     /// Sums the magnitudes.
     pub fn add(&self, rhs: &Self) -> Self {
-        let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_add_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
-        Self(out)
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut out = [0u64; 4];
+            unsafe { zisk::secp256k1_fp_add_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
+            Self(out)
+        }
     }
 
     /// Multiplies by a single-limb integer.
     /// Multiplies the magnitude by the same value.
     pub fn mul_single(&self, rhs: u32) -> Self {
-        let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_mul_scalar_c(self.0.as_ptr(), rhs as u64, out.as_mut_ptr()) };
-        Self(out)
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut out = [0u64; 4];
+            unsafe { zisk::secp256k1_fp_mul_scalar_c(self.0.as_ptr(), rhs as u64, out.as_mut_ptr()) };
+            Self(out)
+        }
     }
 
     #[inline(always)]
     fn mul_inner(&self, rhs: &Self) -> Self {
-        let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_mul_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
-        Self(out)
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            unimplemented!();
+        }
+
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut out = [0u64; 4];
+            unsafe { zisk::secp256k1_fp_mul_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
+            Self(out)
+        }
     }
 
     /// Returns self * rhs mod p

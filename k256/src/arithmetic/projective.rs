@@ -82,8 +82,12 @@ impl ProjectivePoint {
             } else if z == [1, 0, 0, 0] {
                 return AffinePoint::new(self.x.normalize(), self.y.normalize());
             }
+        }
 
-            // Convert to appropriate format for zisklib
+        #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
+        {
+            // Convert to appropriate format
+            let z = self.z.to_4x64();
             let x = self.x.to_4x64();
             let y = self.y.to_4x64();
             let p = [
@@ -92,16 +96,24 @@ impl ProjectivePoint {
                 z[0], z[1], z[2], z[3],
             ];
 
-            // Use the zisklib for the computation
-            let mut res = [0u64; 8];
-            unsafe {
-                zisk::secp256k1_to_affine_c(p.as_ptr(), res.as_mut_ptr());
+            #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+            {
+                // Use the zisklib for the computation
+                let mut res = [0u64; 8];
+                unsafe {
+                    zisk::secp256k1_to_affine_c(p.as_ptr(), res.as_mut_ptr());
+                }
+
+                // Convert back to the original format
+                let res_x = FieldElement::from_4x64(&[res[0], res[1], res[2], res[3]]);
+                let res_y = FieldElement::from_4x64(&[res[4], res[5], res[6], res[7]]);
+                AffinePoint::new(res_x, res_y)
             }
 
-            // Convert back to the original format
-            let res_x = FieldElement::from_4x64(&[res[0], res[1], res[2], res[3]]);
-            let res_y = FieldElement::from_4x64(&[res[4], res[5], res[6], res[7]]);
-            AffinePoint::new(res_x, res_y)
+            #[cfg(zisk_hints)]
+            {
+                // TODO: Implement the hints
+            }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]

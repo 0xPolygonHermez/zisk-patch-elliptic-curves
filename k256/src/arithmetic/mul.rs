@@ -56,12 +56,14 @@ use elliptic_curve::{
 #[cfg(feature = "precomputed-tables")]
 use once_cell::sync::Lazy;
 
-#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+#[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
 use elliptic_curve::Group;
-#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
-use crate::zisk;
+
 #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
 use super::{FieldElement, AffinePoint};
+
+#[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+use crate::zisk;
 
 /// Lookup table containing precomputed values `[p, 2p, 3p, ..., 8p]`
 #[derive(Copy, Clone, Default)]
@@ -321,7 +323,7 @@ fn lincomb(
     tables: &mut [(LookupTable, LookupTable)],
     digits: &mut [(Radix16Decomposition<33>, Radix16Decomposition<33>)],
 ) -> ProjectivePoint {
-    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
     {
         if xks.len() == 2 {
             let (p1, s1) = xks[0];
@@ -349,28 +351,36 @@ fn lincomb(
                     p_coords[0..4].copy_from_slice(&p_x);
                     p_coords[4..8].copy_from_slice(&p_y);
 
-                    // Use the zisklib for the computation
-                    let mut res = [0u64; 8];
-                    let is_identity = unsafe {
-                        zisk::secp256k1_double_scalar_mul_with_g_c(
-                            s1.as_ptr(),
-                            s2.as_ptr(),
-                            p_coords.as_ptr(),
-                            res.as_mut_ptr(),
-                        )
-                    };
+                    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+                    {
+                        // Use the zisklib for the computation
+                        let mut res = [0u64; 8];
+                        let is_identity = unsafe {
+                            zisk::secp256k1_double_scalar_mul_with_g_c(
+                                s1.as_ptr(),
+                                s2.as_ptr(),
+                                p_coords.as_ptr(),
+                                res.as_mut_ptr(),
+                            )
+                        };
 
-                    if is_identity {
-                        return ProjectivePoint::IDENTITY;
+                        if is_identity {
+                            return ProjectivePoint::IDENTITY;
+                        }
+
+                        let res = AffinePoint {
+                            x: FieldElement::from_4x64(&[res[0], res[1], res[2], res[3]]),
+                            y: FieldElement::from_4x64(&[res[4], res[5], res[6], res[7]]),
+                            infinity: 0,
+                        };
+
+                        return ProjectivePoint::from(&res);
                     }
 
-                    let res = AffinePoint {
-                        x: FieldElement::from_4x64(&[res[0], res[1], res[2], res[3]]),
-                        y: FieldElement::from_4x64(&[res[4], res[5], res[6], res[7]]),
-                        infinity: 0,
-                    };
-
-                    return ProjectivePoint::from(&res);
+                    #[cfg(zisk_hints)]
+                    {
+                        // TODO: Implement the hints
+                    }
                 }
             }
         }

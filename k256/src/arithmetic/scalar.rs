@@ -96,61 +96,99 @@ impl Scalar {
     }
 
     /// Negates the scalar.
-    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+    #[cfg(not(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints)))]
     pub const fn negate(&self) -> Self {
         Self(self.0.neg_mod(&ORDER))
     }
 
     /// Negates the scalar.
-    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
     pub fn negate(&self) -> Self {
         let x = self.0.to_words();
-        let mut res = [0u64; 4];
-        unsafe { zisk::secp256k1_fn_neg_c(x.as_ptr(), res.as_mut_ptr()); }
-        Scalar(U256::from_words(res))
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut res = [0u64; 4];
+            unsafe { zisk::secp256k1_fn_neg_c(x.as_ptr(), res.as_mut_ptr()); }
+            Scalar(U256::from_words(res))
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            // TODO: Implement the hints
+
+            Self(self.0.neg_mod(&ORDER))
+        }
     }
 
     /// Returns self + rhs mod n.
-    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+    #[cfg(not(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints)))]
     pub const fn add(&self, rhs: &Self) -> Self {
         Self(self.0.add_mod(&rhs.0, &ORDER))
     }
 
     /// Returns self + rhs mod n.
-    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
     pub fn add(&self, rhs: &Self) -> Self {
         let x = self.0.to_words();
         let y = rhs.0.to_words();
-        let mut res = [0u64; 4];
-        unsafe { zisk::secp256k1_fn_add_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
-        Scalar(U256::from_words(res))
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut res = [0u64; 4];
+            unsafe { zisk::secp256k1_fn_add_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
+            Scalar(U256::from_words(res))
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            // TODO: Implement the hints
+
+            Self(self.0.add_mod(&rhs.0, &ORDER))
+        }
     }
 
     /// Returns self - rhs mod n.
-    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+    #[cfg(not(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints)))]
     pub const fn sub(&self, rhs: &Self) -> Self {
         Self(self.0.sub_mod(&rhs.0, &ORDER))
     }
 
     /// Returns self - rhs mod n.
-    #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+    #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
     pub fn sub(&self, rhs: &Self) -> Self {
         let x = self.0.to_words();
         let y = rhs.0.to_words();
-        let mut res = [0u64; 4];
-        unsafe { zisk::secp256k1_fn_sub_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
-        Scalar(U256::from_words(res))
+        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        {
+            let mut res = [0u64; 4];
+            unsafe { zisk::secp256k1_fn_sub_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
+            Scalar(U256::from_words(res))
+        }
+
+        #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
+        {
+            // TODO: Implement the hints
+
+            Self(self.0.sub_mod(&rhs.0, &ORDER))
+        }
     }
 
     /// Modulo multiplies two scalars.
     pub fn mul(&self, rhs: &Scalar) -> Scalar {
-        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
         {
             let x = self.0.to_words();
             let y = rhs.0.to_words();
-            let mut res = [0u64; 4];
-            unsafe { zisk::secp256k1_fn_mul_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
-            Scalar(U256::from_words(res))
+            #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+            {
+                let mut res = [0u64; 4];
+                unsafe { zisk::secp256k1_fn_mul_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
+                Scalar(U256::from_words(res))
+            }
+
+            #[cfg(zisk_hints)]
+            {
+                // TODO: Implement the hints
+            }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
@@ -173,24 +211,32 @@ impl Scalar {
 
     /// Inverts the scalar.
     pub fn invert(&self) -> CtOption<Self> {
-        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
         {
-            let is_zero = self.is_zero();
-            if is_zero.into() {
-                return CtOption::new(Self::ZERO, is_zero);
+            let x = self.0.to_words();
+            #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+            {
+                let is_zero = self.is_zero();
+                if is_zero.into() {
+                    return CtOption::new(Self::ZERO, is_zero);
+                }
+
+                let mut res = [0u64; 4];
+                unsafe { zisk::secp256k1_fn_inv_c(x.as_ptr(), res.as_mut_ptr()); }
+                
+                CtOption::new(Self(U256::from_words(res)), !is_zero)
             }
 
-            let x = self.0.to_words();
-            let mut res = [0u64; 4];
-            unsafe { zisk::secp256k1_fn_inv_c(x.as_ptr(), res.as_mut_ptr()); }
-            
-            CtOption::new(Self(U256::from_words(res)), !is_zero)
+            #[cfg(zisk_hints)]
+            {
+                // TODO: Implement the hints
+            }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             // Using an addition chain from
-            // https://briansmith.org/ecc-inversion-addition-chains-01#zisk::secp256k1_scalar_inversion
+            // https://briansmith.org/ecc-inversion-addition-chains-01
             let x_1 = *self;
             let x_10 = self.pow2k(1);
             let x_11 = x_10.mul(&x_1);
@@ -275,7 +321,6 @@ impl Scalar {
     }
 
     /// Raises the scalar to the power `2^k`.
-    #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
     fn pow2k(&self, k: usize) -> Self {
         let mut x = *self;
         for _j in 0..k {
@@ -736,12 +781,20 @@ impl Reduce<U256> for Scalar {
     type Bytes = FieldBytes;
 
     fn reduce(w: U256) -> Self {
-        #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+        #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
         {
             let x = w.to_words();
-            let mut res = [0u64; 4];
-            unsafe { zisk::secp256k1_fn_reduce_c(x.as_ptr(), res.as_mut_ptr()); }
-            Scalar(U256::from_words(res))
+            #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))]
+            {
+                let mut res = [0u64; 4];
+                unsafe { zisk::secp256k1_fn_reduce_c(x.as_ptr(), res.as_mut_ptr()); }
+                Scalar(U256::from_words(res))
+            }
+
+            #[cfg(zisk_hints)]
+            {
+                // TODO: Implement the hints
+            }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
