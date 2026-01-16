@@ -161,7 +161,7 @@ impl FieldElement5x52 {
         // w4 has bits 208..256
         
         let limb0 = normalized.0[0] | ((normalized.0[1] & 0xFFF) << 52);
-        let limb1 = (normalized.0[1] >> 13) | ((normalized.0[2] & 0xFFFFFF) << 40);
+        let limb1 = (normalized.0[1] >> 12) | ((normalized.0[2] & 0xFFFFFF) << 40);
         let limb2 = (normalized.0[2] >> 24) | ((normalized.0[3] & 0xFFFFFFFFF) << 28);
         let limb3 = (normalized.0[3] >> 36) | (normalized.0[4] << 16);
         
