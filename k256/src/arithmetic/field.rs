@@ -5,39 +5,20 @@
 use cfg_if::cfg_if;
 
 cfg_if! {
-    if #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))] {
-        // Full zisk target - uses syscalls
-        mod field_4x64;
-    } else if #[cfg(zisk_hints)] {
-        // Native but using 4x64 representation
-        mod field_4x64;
+    if #[cfg(target_pointer_width = "32")] {
+        mod field_10x26;
+    } else if #[cfg(target_pointer_width = "64")] {
+        mod field_5x52;
     } else {
-        // Pure native
-        cfg_if! {
-            if #[cfg(target_pointer_width = "32")] {
-                mod field_10x26;
-            } else if #[cfg(target_pointer_width = "64")] {
-                mod field_5x52;
-            } else {
-                compile_error!("unsupported target word size (i.e. target_pointer_width)");
-            }
-        }
+        compile_error!("unsupported target word size (i.e. target_pointer_width)");
     }
 }
 
 cfg_if! {
-    if #[cfg(all(target_os = "zkvm", target_vendor = "zisk"))] {
-        // Full zisk target - uses syscalls
-        use field_4x64::FieldElement4x64 as FieldElementImpl;
-    } else if #[cfg(zisk_hints)] {
-        // Native but using 4x64 representation
-        use field_4x64::FieldElement4x64 as FieldElementImpl;
-    } else if #[cfg(debug_assertions)] {
-        // Only compiled when NOT zisk and NOT zisk_hints
+    if #[cfg(debug_assertions)] {
         mod field_impl;
         use field_impl::FieldElementImpl;
     } else {
-        // Pure native
         cfg_if! {
             if #[cfg(target_pointer_width = "32")] {
                 use field_10x26::FieldElement10x26 as FieldElementImpl;
@@ -135,7 +116,7 @@ impl FieldElement {
 
     #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
     pub(crate) fn to_4x64(self) -> [u64; 4] {
-        self.0.0
+        self.0.to_4x64()
     }
 
     /// Returns -self, treating it as a value of given magnitude.

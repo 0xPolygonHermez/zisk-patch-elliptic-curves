@@ -1,6 +1,8 @@
 //! Field element modulo the curve internal modulus using 64-bit limbs.
 //! Inspired by the implementation in <https://github.com/bitcoin-core/secp256k1>
 
+// TODO: Use zisk-speedup in this class!
+
 use crate::FieldBytes;
 use elliptic_curve::{
     subtle::{Choice, ConditionallySelectable, ConstantTimeEq, CtOption},
@@ -84,6 +86,30 @@ impl FieldElement5x52 {
         Self([w0, w1, 0, 0, 0])
     }
 
+    #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
+    pub const fn from_4x64(val: &[u64; 4]) -> Self {
+        // Each 64-bit limb needs to be split into 52-bit chunks
+        // Input: [limb0, limb1, limb2, limb3] where each is 64 bits
+        // Output: [w0, w1, w2, w3, w4] where w0-w3 are 52 bits, w4 is 48 bits
+        
+        // Extract bits 0..52 from limb0
+        let w0 = val[0] & 0xFFFFFFFFFFFFF;
+        
+        // Extract bits 52..64 from limb0 (12 bits) and bits 0..40 from limb1 (40 bits)
+        let w1 = ((val[0] >> 52) | (val[1] << 12)) & 0xFFFFFFFFFFFFF;
+        
+        // Extract bits 40..64 from limb1 (24 bits) and bits 0..28 from limb2 (28 bits)
+        let w2 = ((val[1] >> 40) | (val[2] << 24)) & 0xFFFFFFFFFFFFF;
+        
+        // Extract bits 28..64 from limb2 (36 bits) and bits 0..16 from limb3 (16 bits)
+        let w3 = ((val[2] >> 28) | (val[3] << 36)) & 0xFFFFFFFFFFFFF;
+        
+        // Extract bits 16..64 from limb3 (48 bits)
+        let w4 = val[3] >> 16;
+        
+        Self([w0, w1, w2, w3, w4])
+    }
+
     /// Returns the SEC1 encoding of this field element.
     pub fn to_bytes(self) -> FieldBytes {
         let mut ret = FieldBytes::default();
@@ -120,6 +146,26 @@ impl FieldElement5x52 {
         ret[30] = (self.0[0] >> 8) as u8;
         ret[31] = self.0[0] as u8;
         ret
+    }
+
+    #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
+    pub fn to_4x64(&self) -> [u64; 4] {
+        // Normalize first to ensure proper bit distribution
+        let normalized = self.normalize();
+        
+        // Reconstruct 64-bit limbs from 52-bit chunks
+        // w0 has bits 0..52
+        // w1 has bits 52..104
+        // w2 has bits 104..156
+        // w3 has bits 156..208
+        // w4 has bits 208..256
+        
+        let limb0 = normalized.0[0] | ((normalized.0[1] & 0xFFF) << 52);
+        let limb1 = (normalized.0[1] >> 13) | ((normalized.0[2] & 0xFFFFFF) << 40);
+        let limb2 = (normalized.0[2] >> 24) | ((normalized.0[3] & 0xFFFFFFFFF) << 28);
+        let limb3 = (normalized.0[3] >> 36) | (normalized.0[4] << 16);
+        
+        [limb0, limb1, limb2, limb3]
     }
 
     /// Adds `x * (2^256 - modulus)`.
