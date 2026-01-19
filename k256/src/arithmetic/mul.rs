@@ -379,12 +379,15 @@ fn lincomb(
 
                     #[cfg(zisk_hints)]
                     {
-                        // TODO: Implement the hints
+                        ziskos::hints::hint_secp256k1_double_scalar_mul_with_g(&s1, &s2, &p_coords);
                     }
                 }
             }
         }
     }
+
+    #[cfg(zisk_hints)]
+    ziskos::hints::pause_hints();
 
     xks.iter().enumerate().for_each(|(i, (x, k))| {
         let (r1, r2) = decompose_scalar(k);
@@ -431,6 +434,10 @@ fn lincomb(
             acc += &table2.select(digit2.0[i]);
         }
     }
+
+    #[cfg(zisk_hints)]
+    ziskos::hints::resume_hints();
+
     acc
 }
 

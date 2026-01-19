@@ -205,14 +205,23 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
             CtOption::new(pt, Choice::from(success))
         }
 
-        #[cfg(zisk_hints)]
-        {
-            // TODO: Implement the hints
-        }
-
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            FieldElement::from_bytes(x_bytes).and_then(|x| {
+            #[cfg(zisk_hints)]
+            {
+                // Convert x_bytes to [u8; 32]
+                let x_words: [u8; 32] = x_bytes
+                    .as_slice()
+                    .try_into()
+                    .expect("FieldBytes should be 32 bytes long");
+
+                let y_slice: [u64; 1] = [y_is_odd.unwrap_u8() as u64];
+                ziskos::hints::hint_secp256k1_decompress(&x_words, &y_slice);
+
+                ziskos::hints::pause_hints();
+            }
+
+            let result = FieldElement::from_bytes(x_bytes).and_then(|x| {
                 let alpha = (x * &x * &x) + &CURVE_EQUATION_B;
                 let beta = alpha.sqrt();
 
@@ -226,7 +235,12 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
 
                     Self::new(x, y.normalize())
                 })
-            })
+            });
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+            
+            result
         }
     }
 }

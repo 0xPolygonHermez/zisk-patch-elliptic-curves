@@ -112,16 +112,24 @@ impl ProjectivePoint {
 
             #[cfg(zisk_hints)]
             {
-                // TODO: Implement the hints
+                ziskos::hints::hint_secp256k1_to_affine(&p);
             }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            self.z
+            #[cfg(zisk_hints)]
+            ziskos::hints::pause_hints();
+
+            let result = self.z
                 .invert()
                 .map(|zinv| self.to_affine_internal(zinv))
-                .unwrap_or_else(|| AffinePoint::IDENTITY)
+                .unwrap_or_else(|| AffinePoint::IDENTITY);
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 

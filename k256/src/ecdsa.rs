@@ -252,14 +252,26 @@ impl VerifyPrimitive<Secp256k1> for AffinePoint {
 
             #[cfg(zisk_hints)]
             {
-                // TODO: Implement the hints
-                // ziskos::hints::hint_ecrecover(&pk, &z_words, &r_words, &s_words);
+                ziskos::hints::hint_secp256k1_ecdsa_verify(
+                    &pk,
+                    &z_words,
+                    &r_words,
+                    &s_words,
+                );
             }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            hazmat::verify_prehashed(&self.into(), z, sig)
+            #[cfg(zisk_hints)]
+            ziskos::hints::pause_hints();
+
+            let result = hazmat::verify_prehashed(&self.into(), z, sig);
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 }

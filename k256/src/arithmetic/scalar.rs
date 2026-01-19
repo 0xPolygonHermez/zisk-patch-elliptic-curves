@@ -114,9 +114,19 @@ impl Scalar {
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            // TODO: Implement the hints
+            #[cfg(zisk_hints)]
+            {
+                ziskos::hints::hint_secp256k1_fn_neg(&x);
 
-            Self(self.0.neg_mod(&ORDER))
+                ziskos::hints::pause_hints();
+            }
+
+            let result = Self(self.0.neg_mod(&ORDER));
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 
@@ -140,9 +150,19 @@ impl Scalar {
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            // TODO: Implement the hints
+            #[cfg(zisk_hints)]
+            {
+                ziskos::hints::hint_secp256k1_fn_add(&x, &y);
 
-            Self(self.0.add_mod(&rhs.0, &ORDER))
+                ziskos::hints::pause_hints();
+            }
+
+            let result = Self(self.0.add_mod(&rhs.0, &ORDER));
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 
@@ -166,9 +186,19 @@ impl Scalar {
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            // TODO: Implement the hints
+            #[cfg(zisk_hints)]
+            {
+                ziskos::hints::hint_secp256k1_fn_sub(&x, &y);
 
-            Self(self.0.sub_mod(&rhs.0, &ORDER))
+                ziskos::hints::pause_hints();
+            }
+
+            let result = Self(self.0.sub_mod(&rhs.0, &ORDER));
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 
@@ -187,13 +217,21 @@ impl Scalar {
 
             #[cfg(zisk_hints)]
             {
-                // TODO: Implement the hints
+                ziskos::hints::hint_secp256k1_fn_mul(&x, &y);
             }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
-            WideScalar::mul_wide(self, rhs).reduce()
+            #[cfg(zisk_hints)]
+            ziskos::hints::pause_hints();
+
+            let result = WideScalar::mul_wide(self, rhs).reduce();
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 
@@ -223,18 +261,21 @@ impl Scalar {
 
                 let mut res = [0u64; 4];
                 unsafe { zisk::secp256k1_fn_inv_c(x.as_ptr(), res.as_mut_ptr()); }
-                
+
                 CtOption::new(Self(U256::from_words(res)), !is_zero)
             }
 
             #[cfg(zisk_hints)]
             {
-                // TODO: Implement the hints
+                ziskos::hints::hint_secp256k1_fn_inv(&x);
             }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
+            #[cfg(zisk_hints)]
+            ziskos::hints::pause_hints();
+
             // Using an addition chain from
             // https://briansmith.org/ecc-inversion-addition-chains-01
             let x_1 = *self;
@@ -281,7 +322,12 @@ impl Scalar {
                 .pow2k(6).mul(&x_1)
                 .pow2k(8).mul(&x6);
 
-            CtOption::new(res, !self.is_zero())
+            let result = CtOption::new(res, !self.is_zero());
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
     }
 
@@ -793,15 +839,23 @@ impl Reduce<U256> for Scalar {
 
             #[cfg(zisk_hints)]
             {
-                // TODO: Implement the hints
+                ziskos::hints::hint_secp256k1_fn_reduce(&x);
             }
         }
 
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
+            #[cfg(zisk_hints)]
+            ziskos::hints::pause_hints();
+
             let (r, underflow) = w.sbb(&ORDER, Limb::ZERO);
             let underflow = Choice::from((underflow.0 >> (Limb::BITS - 1)) as u8);
-            Self(U256::conditional_select(&w, &r, !underflow))
+            let result = Self(U256::conditional_select(&w, &r, !underflow));
+
+            #[cfg(zisk_hints)]
+            ziskos::hints::resume_hints();
+
+            result
         }
 
     }

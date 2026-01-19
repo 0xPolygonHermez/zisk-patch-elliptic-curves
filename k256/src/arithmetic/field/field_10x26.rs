@@ -93,28 +93,28 @@ impl FieldElement10x26 {
     pub const fn from_4x64(val: &[u64; 4]) -> Self {
         // Each 64-bit limb needs to be split into 26-bit chunks
         // We need to produce 10 limbs of 26 bits each (last one is 22 bits)
-        
+
         // Process limb0 (64 bits) -> w0 (26 bits), w1 (26 bits), partial w2 (12 bits)
         let w0 = (val[0] as u32) & 0x3FFFFFF;
         let w1 = ((val[0] >> 26) as u32) & 0x3FFFFFF;
         let w2_partial = (val[0] >> 52) as u32; // 12 bits
-        
+
         // Process limb1 (64 bits) -> rest of w2 (14 bits), w3 (26 bits), w4 (24 bits)
         let w2 = (w2_partial | ((val[1] as u32) << 12)) & 0x3FFFFFF;
         let w3 = ((val[1] >> 14) as u32) & 0x3FFFFFF;
         let w4_partial = (val[1] >> 40) as u32; // 24 bits
-        
+
         // Process limb2 (64 bits) -> rest of w4 (2 bits), w5 (26 bits), w6 (26 bits), partial w7 (10 bits)
         let w4 = (w4_partial | ((val[2] as u32) << 24)) & 0x3FFFFFF;
         let w5 = ((val[2] >> 2) as u32) & 0x3FFFFFF;
         let w6 = ((val[2] >> 28) as u32) & 0x3FFFFFF;
         let w7_partial = (val[2] >> 54) as u32; // 10 bits
-        
+
         // Process limb3 (64 bits) -> rest of w7 (16 bits), w8 (26 bits), w9 (22 bits)
         let w7 = (w7_partial | ((val[3] as u32) << 10)) & 0x3FFFFFF;
         let w8 = ((val[3] >> 16) as u32) & 0x3FFFFFF;
         let w9 = (val[3] >> 42) as u32; // 22 bits
-        
+
         Self([w0, w1, w2, w3, w4, w5, w6, w7, w8, w9])
     }
 
@@ -160,27 +160,27 @@ impl FieldElement10x26 {
     pub fn to_4x64(&self) -> [u64; 4] {
         // Normalize first to ensure proper bit distribution
         let normalized = self.normalize();
-        
+
         // Reconstruct 64-bit limbs from 26-bit chunks
         // w0-w9 are 26 bits each (w9 is 22 bits in normalized form)
-        
-        let limb0 = (normalized.0[0] as u64) 
+
+        let limb0 = (normalized.0[0] as u64)
             | ((normalized.0[1] as u64) << 26)
             | ((normalized.0[2] as u64 & 0xFFF) << 52);
-        
+
         let limb1 = ((normalized.0[2] as u64) >> 12)
             | ((normalized.0[3] as u64) << 14)
             | ((normalized.0[4] as u64 & 0xFFFFFF) << 40);
-        
+
         let limb2 = ((normalized.0[4] as u64) >> 24)
             | ((normalized.0[5] as u64) << 2)
             | ((normalized.0[6] as u64) << 28)
             | ((normalized.0[7] as u64 & 0x3FF) << 54);
-        
+
         let limb3 = ((normalized.0[7] as u64) >> 10)
             | ((normalized.0[8] as u64) << 16)
             | ((normalized.0[9] as u64) << 42);
-        
+
         [limb0, limb1, limb2, limb3]
     }
 
