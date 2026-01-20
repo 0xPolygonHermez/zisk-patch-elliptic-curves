@@ -119,7 +119,7 @@ impl ProjectivePoint {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            ziskos::hints::pause_hints();
+            let already_paused = ziskos::hints::pause_hints();
 
             let result = self.z
                 .invert()
@@ -127,7 +127,9 @@ impl ProjectivePoint {
                 .unwrap_or_else(|| AffinePoint::IDENTITY);
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }

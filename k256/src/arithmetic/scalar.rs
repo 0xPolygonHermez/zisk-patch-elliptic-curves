@@ -115,16 +115,17 @@ impl Scalar {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            {
-                ziskos::hints::hint_secp256k1_fn_neg(&x);
+            ziskos::hints::hint_secp256k1_fn_neg(&x);
 
-                ziskos::hints::pause_hints();
-            }
+            #[cfg(zisk_hints)]
+            let already_paused = ziskos::hints::pause_hints();
 
             let result = Self(self.0.neg_mod(&ORDER));
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }
@@ -151,16 +152,17 @@ impl Scalar {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            {
-                ziskos::hints::hint_secp256k1_fn_add(&x, &y);
+            ziskos::hints::hint_secp256k1_fn_add(&x, &y);
 
-                ziskos::hints::pause_hints();
-            }
+            #[cfg(zisk_hints)]
+            let already_paused = ziskos::hints::pause_hints();
 
             let result = Self(self.0.add_mod(&rhs.0, &ORDER));
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }
@@ -187,16 +189,17 @@ impl Scalar {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            {
-                ziskos::hints::hint_secp256k1_fn_sub(&x, &y);
+            ziskos::hints::hint_secp256k1_fn_sub(&x, &y);
 
-                ziskos::hints::pause_hints();
-            }
+            #[cfg(zisk_hints)]
+            let already_paused = ziskos::hints::pause_hints();
 
             let result = Self(self.0.sub_mod(&rhs.0, &ORDER));
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }
@@ -224,12 +227,14 @@ impl Scalar {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            ziskos::hints::pause_hints();
+            let already_paused = ziskos::hints::pause_hints();
 
             let result = WideScalar::mul_wide(self, rhs).reduce();
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }
@@ -274,7 +279,7 @@ impl Scalar {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            ziskos::hints::pause_hints();
+            let already_paused = ziskos::hints::pause_hints();
 
             // Using an addition chain from
             // https://briansmith.org/ecc-inversion-addition-chains-01
@@ -325,7 +330,9 @@ impl Scalar {
             let result = CtOption::new(res, !self.is_zero());
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }
@@ -846,14 +853,16 @@ impl Reduce<U256> for Scalar {
         #[cfg(not(all(target_os = "zkvm", target_vendor = "zisk")))]
         {
             #[cfg(zisk_hints)]
-            ziskos::hints::pause_hints();
+            let already_paused = ziskos::hints::pause_hints();
 
             let (r, underflow) = w.sbb(&ORDER, Limb::ZERO);
             let underflow = Choice::from((underflow.0 >> (Limb::BITS - 1)) as u8);
             let result = Self(U256::conditional_select(&w, &r, !underflow));
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
 
             result
         }

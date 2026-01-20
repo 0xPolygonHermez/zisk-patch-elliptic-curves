@@ -217,9 +217,10 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
 
                 let y_slice: [u64; 1] = [y_is_odd.unwrap_u8() as u64];
                 ziskos::hints::hint_secp256k1_decompress(&x_words, &y_slice);
-
-                ziskos::hints::pause_hints();
             }
+
+            #[cfg(zisk_hints)]
+            let already_paused = ziskos::hints::pause_hints();
 
             let result = FieldElement::from_bytes(x_bytes).and_then(|x| {
                 let alpha = (x * &x * &x) + &CURVE_EQUATION_B;
@@ -238,8 +239,10 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
             });
 
             #[cfg(zisk_hints)]
-            ziskos::hints::resume_hints();
-            
+            if !already_paused {
+                ziskos::hints::resume_hints();
+            }
+
             result
         }
     }

@@ -323,6 +323,8 @@ fn lincomb(
     tables: &mut [(LookupTable, LookupTable)],
     digits: &mut [(Radix16Decomposition<33>, Radix16Decomposition<33>)],
 ) -> ProjectivePoint {
+    let mut hint_secp256k1_double_scalar_mul_with_g_called = false;
+
     #[cfg(any(all(target_os = "zkvm", target_vendor = "zisk"), zisk_hints))]
     {
         if xks.len() == 2 {
@@ -380,6 +382,7 @@ fn lincomb(
                     #[cfg(zisk_hints)]
                     {
                         ziskos::hints::hint_secp256k1_double_scalar_mul_with_g(&s1, &s2, &p_coords);
+                        hint_secp256k1_double_scalar_mul_with_g_called = true;
                     }
                 }
             }
@@ -387,7 +390,11 @@ fn lincomb(
     }
 
     #[cfg(zisk_hints)]
-    ziskos::hints::pause_hints();
+    let already_paused = if hint_secp256k1_double_scalar_mul_with_g_called {
+        ziskos::hints::pause_hints()
+    } else {
+        true
+    };
 
     xks.iter().enumerate().for_each(|(i, (x, k))| {
         let (r1, r2) = decompose_scalar(k);
@@ -436,7 +443,9 @@ fn lincomb(
     }
 
     #[cfg(zisk_hints)]
-    ziskos::hints::resume_hints();
+    if hint_secp256k1_double_scalar_mul_with_g_called && !already_paused {
+        ziskos::hints::resume_hints();
+    }
 
     acc
 }
