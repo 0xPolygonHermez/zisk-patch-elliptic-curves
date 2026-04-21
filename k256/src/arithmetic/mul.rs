@@ -351,8 +351,8 @@ fn lincomb(
 
                     // Use the zisklib for the computation
                     let mut res = [0u64; 8];
-                    let is_identity = unsafe {
-                        zisk::secp256k1_double_scalar_mul_with_g_c(
+                    let is_finite = unsafe {
+                        zisk::double_scalar_mul_with_g_secp256k1_c(
                             s1.as_ptr(),
                             s2.as_ptr(),
                             p_coords.as_ptr(),
@@ -360,7 +360,7 @@ fn lincomb(
                         )
                     };
 
-                    if is_identity {
+                    if is_finite == 0 {
                         return ProjectivePoint::IDENTITY;
                     }
 

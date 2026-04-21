@@ -190,7 +190,7 @@ impl DecompressPoint<Secp256k1> for AffinePoint {
         {
             let mut coords = [0u64; 8];
             let success = unsafe {
-                zisk::secp256k1_decompress_c(
+                zisk::lift_x_secp256k1_c(
                     x_bytes.as_ptr(),
                     y_is_odd.unwrap_u8(),
                     coords.as_mut_ptr(),

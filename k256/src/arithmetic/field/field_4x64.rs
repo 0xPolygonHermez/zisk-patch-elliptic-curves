@@ -115,14 +115,14 @@ impl FieldElement4x64 {
     /// Brings the field element's magnitude to 1, but does not necessarily normalize it.
     pub fn normalize_weak(&self) -> Self {
         let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_reduce_c(self.0.as_ptr(), out.as_mut_ptr()) };
+        unsafe { zisk::reduce_fp_secp256k1_c(self.0.as_ptr(), out.as_mut_ptr()) };
         Self(out)
     }
 
     /// Fully normalizes the field element.
     pub fn normalize(&self) -> Self {
         let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_reduce_c(self.0.as_ptr(), out.as_mut_ptr()) };
+        unsafe { zisk::reduce_fp_secp256k1_c(self.0.as_ptr(), out.as_mut_ptr()) };
         Self(out)
     }
 
@@ -152,7 +152,7 @@ impl FieldElement4x64 {
     /// Returns -self
     pub fn negate(&self, _magnitude: u32) -> Self {
         let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_negate_c(self.0.as_ptr(), out.as_mut_ptr()) };
+        unsafe { zisk::neg_fp_secp256k1_c(self.0.as_ptr(), out.as_mut_ptr()) };
         Self(out)
     }
 
@@ -160,7 +160,7 @@ impl FieldElement4x64 {
     /// Sums the magnitudes.
     pub fn add(&self, rhs: &Self) -> Self {
         let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_add_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
+        unsafe { zisk::add_fp_secp256k1_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
         Self(out)
     }
 
@@ -168,14 +168,14 @@ impl FieldElement4x64 {
     /// Multiplies the magnitude by the same value.
     pub fn mul_single(&self, rhs: u32) -> Self {
         let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_mul_scalar_c(self.0.as_ptr(), rhs as u64, out.as_mut_ptr()) };
+        unsafe { zisk::mul_fp_secp256k1_c(self.0.as_ptr(), [rhs as u64, 0, 0, 0].as_ptr(), out.as_mut_ptr()) };
         Self(out)
     }
 
     #[inline(always)]
     fn mul_inner(&self, rhs: &Self) -> Self {
         let mut out = [0u64; 4];
-        unsafe { zisk::secp256k1_fp_mul_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
+        unsafe { zisk::mul_fp_secp256k1_c(self.0.as_ptr(), rhs.0.as_ptr(), out.as_mut_ptr()) };
         Self(out)
     }
 

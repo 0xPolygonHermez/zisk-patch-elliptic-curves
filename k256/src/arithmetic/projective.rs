@@ -95,7 +95,7 @@ impl ProjectivePoint {
             // Use the zisklib for the computation
             let mut res = [0u64; 8];
             unsafe {
-                zisk::secp256k1_to_affine_c(p.as_ptr(), res.as_mut_ptr());
+                zisk::jacobian_to_affine_secp256k1_c(p.as_ptr(), res.as_mut_ptr());
             }
 
             // Convert back to the original format

@@ -229,7 +229,7 @@ impl VerifyPrimitive<Secp256k1> for AffinePoint {
 
             // Use the zisklib for the computation
             let verifies = unsafe {
-                zisk::secp256k1_ecdsa_verify_c(
+                zisk::ecdsa_verify_secp256k1_c(
                     pk.as_ptr(),
                     z_words.as_ptr(),
                     r_words.as_ptr(),
@@ -237,7 +237,7 @@ impl VerifyPrimitive<Secp256k1> for AffinePoint {
                 )
             };
 
-            if verifies {
+            if verifies == 1 {
                 Ok(())
             } else {
                 Err(Error::new())

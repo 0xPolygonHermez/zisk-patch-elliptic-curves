@@ -106,7 +106,7 @@ impl Scalar {
     pub fn negate(&self) -> Self {
         let x = self.0.to_words();
         let mut res = [0u64; 4];
-        unsafe { zisk::secp256k1_fn_neg_c(x.as_ptr(), res.as_mut_ptr()); }
+        unsafe { zisk::neg_fn_secp256k1_c(x.as_ptr(), res.as_mut_ptr()); }
         Scalar(U256::from_words(res))
     }
 
@@ -122,7 +122,7 @@ impl Scalar {
         let x = self.0.to_words();
         let y = rhs.0.to_words();
         let mut res = [0u64; 4];
-        unsafe { zisk::secp256k1_fn_add_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
+        unsafe { zisk::add_fn_secp256k1_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
         Scalar(U256::from_words(res))
     }
 
@@ -138,7 +138,7 @@ impl Scalar {
         let x = self.0.to_words();
         let y = rhs.0.to_words();
         let mut res = [0u64; 4];
-        unsafe { zisk::secp256k1_fn_sub_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
+        unsafe { zisk::sub_fn_secp256k1_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
         Scalar(U256::from_words(res))
     }
 
@@ -149,7 +149,7 @@ impl Scalar {
             let x = self.0.to_words();
             let y = rhs.0.to_words();
             let mut res = [0u64; 4];
-            unsafe { zisk::secp256k1_fn_mul_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
+            unsafe { zisk::mul_fn_secp256k1_c(x.as_ptr(), y.as_ptr(), res.as_mut_ptr()); }
             Scalar(U256::from_words(res))
         }
 
@@ -182,7 +182,7 @@ impl Scalar {
 
             let x = self.0.to_words();
             let mut res = [0u64; 4];
-            unsafe { zisk::secp256k1_fn_inv_c(x.as_ptr(), res.as_mut_ptr()); }
+            unsafe { zisk::inv_fn_secp256k1_c(x.as_ptr(), res.as_mut_ptr()); }
             
             CtOption::new(Self(U256::from_words(res)), !is_zero)
         }
@@ -740,7 +740,7 @@ impl Reduce<U256> for Scalar {
         {
             let x = w.to_words();
             let mut res = [0u64; 4];
-            unsafe { zisk::secp256k1_fn_reduce_c(x.as_ptr(), res.as_mut_ptr()); }
+            unsafe { zisk::reduce_fn_secp256k1_c(x.as_ptr(), res.as_mut_ptr()); }
             Scalar(U256::from_words(res))
         }
 
